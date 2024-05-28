@@ -386,9 +386,11 @@ function make_entry.gen_from_vimgrep_json(opts)
     end
   end
 
+  local disable_devicons = opts.disable_devicons
   local mt_vimgrep_entry = {}
+
   mt_vimgrep_entry.display = function(entry)
-    local display_filename = utils.transform_path(opts, entry.filename)
+    local display_filename, path_style = utils.transform_path(opts, entry.filename)
 
     local coordinates = ":"
     if not opts.disable_coordinates then
@@ -401,10 +403,10 @@ function make_entry.gen_from_vimgrep_json(opts)
       end
     end
 
-    local file_pos, hl_group, icon = utils.transform_devicons(
+    local display, hl_group, icon = utils.transform_devicons(
       entry.filename,
-      string.format("%s%s", display_filename, coordinates),
-      opts.disable_devicons
+      string.format("%s%s", display_filename, coordinates, entry.text),
+      disable_devicons
     )
 
     local match_hi = "TelescopeMatching"
@@ -412,13 +414,20 @@ function make_entry.gen_from_vimgrep_json(opts)
       match_hi = "TelescopeMatchingAlternate"
     end
 
-    local highlights = { { { 0, strings.strdisplaywidth(icon) }, hl_group or "" } }
-    local file_pos_len = #file_pos
+    local grep_style = {}
     for _, submatch in ipairs(entry.submatches) do
-      table.insert(highlights, { { submatch["start"] + file_pos_len, submatch["end"] + file_pos_len }, match_hi })
+      table.insert(grep_style, { { submatch["start"], submatch["end"] }, match_hi })
     end
 
-    return file_pos .. entry.text, highlights
+    local full_display = display .. entry.text
+    local style = {}
+    style = utils.merge_styles(style, grep_style, #display)
+    style = utils.merge_styles(style, path_style, #icon + 1)
+    if hl_group then
+      local icon_style = { { { 0, #icon }, hl_group } }
+      style = utils.merge_styles(style, icon_style, 0)
+    end
+    return full_display, style
   end
 
   mt_vimgrep_entry.__index = function(t, k)
